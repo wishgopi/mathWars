@@ -1,4 +1,9 @@
-require('dotenv').config();
+try {
+  // Load env from .env in local/dev; in production (Render) env vars are provided by the platform
+  require('dotenv').config();
+} catch (e) {
+  // dotenv may not be installed in production; ignore if missing
+}
 
 const express = require('express');
 const { Pool } = require('pg');
@@ -9,7 +14,13 @@ app.use(express.json()); // For parsing application/json
 const port = process.env.PORT || 3002;
 
 // CORS configuration
-const allowedOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:3000', 'http://localhost:5174', 'http://localhost:5175'];
+// Allow local defaults plus any comma-separated ALLOWED_ORIGINS from env (e.g., https://your-frontend.netlify.app)
+const defaultAllowedOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:3000', 'http://localhost:5174', 'http://localhost:5175'];
+const envAllowed = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map(o => o.trim())
+  .filter(Boolean);
+const allowedOrigins = [...new Set([...defaultAllowedOrigins, ...envAllowed])];
 
 // Enable CORS for all routes
 app.use((req, res, next) => {
@@ -31,16 +42,22 @@ app.use((req, res, next) => {
 
 // Set Content Security Policy headers
 app.use((req, res, next) => {
-  res.setHeader('Content-Security-Policy', 
+  // Allow overriding connect-src via env (comma-separated). Otherwise allow self, https, and wss.
+  const envConnect = (process.env.CSP_CONNECT_SRC || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+  const connectSrc = envConnect.length > 0
+    ? envConnect.join(' ')
+    : "'self' https: wss:";
+  const csp =
     "default-src 'self'; " +
-    "connect-src 'self' http://localhost:3002 ws://localhost:3002 ws://localhost:5175; " +
+    `connect-src ${connectSrc}; ` +
     "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
-    "style-src 'self' 'unsafe-inline';"
-  );
+    "style-src 'self' 'unsafe-inline';";
+  res.setHeader('Content-Security-Policy', csp);
   next();
 });
-
-
 
 // Create a PostgreSQL connection pool using the environment variable.
 const pool = new Pool({

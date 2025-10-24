@@ -1,8 +1,9 @@
 import axios from 'axios';
 
 // Configure axios defaults
+const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002';
 const apiClient = axios.create({
-  baseURL: 'http://localhost:3002',
+  baseURL: apiBase,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -230,10 +231,9 @@ export const fetchUserGameCount = async (userId) => {
 // Fetch all user scores from usergames table
 export async function fetchAllScores(userId) {
   try {
-    const response = await fetch(`http://localhost:3002/api/usergames/${userId}/scores`);
-    if (!response.ok) throw new Error("Failed to fetch scores");
-    const data = await response.json();
-    return data.scores; // returns an array like [500, 750, 900, 1100, ...]
+    const response = await apiClient.get(`/api/usergames/${userId}/scores`);
+    const data = response.data;
+    return data.scores;
   } catch (error) {
     console.error("Error fetching scores:", error);
     return [];
@@ -242,15 +242,10 @@ export async function fetchAllScores(userId) {
 
 export async function fetchUserGameScores(userId, gameId) {
   try {
-    const response = await fetch(`http://localhost:3002/api/usergames/${userId}/${gameId}/scores`);
-    if (!response.ok) throw new Error("Failed to fetch scores");
-    return await response.json();
+    const response = await apiClient.get(`/api/usergames/${userId}/${gameId}/scores`);
+    return response.data;
   } catch (error) {
     console.error("Error fetching user game scores:", error);
     return [];
   }
 }
-
-
-
-
